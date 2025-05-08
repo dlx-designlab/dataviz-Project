@@ -195,7 +195,7 @@ function initializeVisualization() {
         .range(["#FFFFFF", "#000000", "#000000"]);
 
     // Dimensions du SVG
-    const radius = 1200;
+    const radius = 1800;
     const width = radius * 2;
     const height = radius * 2;
 
