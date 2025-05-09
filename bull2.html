@@ -1,30 +1,37 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Project Visualization</title>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visualisation des Projets DesignLab</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.css">
   <link rel="stylesheet" href="bull2.css">
-  <link rel="icon" href="dlx.jpg">
 </head>
 <body>
-  <button id="burger-btn">
+  <div id="burger-btn" class="burger-btn">
     <img src="burger-bar.png" alt="" id="img-burger">
     <img src="close.png" alt="" id="img-close">
-  </button>
-  <div id="container">
-    <div id="filters">
-      
+  </div>
+  <div id="container" class="hidden">
+    <div id="filters"></div>
+    <div id="slider-container">
+      <h3>Années</h3>
+      <div id="slider"></div>
+      <div id="slider-values">
+        <span id="min"></span> - <span id="max"></span>
+      </div>
     </div>
   </div>
   <div id="chart"></div>
-  <div id="popup-overlay"></div>
-  <div id="popup">
-    <div id="popup-header">
-      <h2 id="popup-title"></h2>
-      <span id="popup-close">×</span>
-    </div>
+  <div id="popup" class="popup">
+    <span id="popup-close">×</span>
+    <h2 id="popup-title"></h2>
     <div id="popup-content"></div>
   </div>
+  <div id="popup-overlay" class="popup-overlay"></div>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.0/nouislider.min.js"></script>
   <script src="bull.js"></script>
 </body>
+</html>
