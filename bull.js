@@ -591,7 +591,7 @@ function initializeVisualization() {
       .attr("height", "100%")
       .attr("patternContentUnits", "objectBoundingBox")
       .append("image")
-      .attr("xlink:href", "image/Transparent-Intent.png")
+      .attr("xlink:href", `image/${d.name}.png`)
       .attr("width", 1)
       .attr("height", 1)
       .attr("preserveAspectRatio", "xMidYMid slice");
