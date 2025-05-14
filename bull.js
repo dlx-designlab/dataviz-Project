@@ -558,7 +558,8 @@ function initializeVisualization() {
 
   color = d3.scaleOrdinal()
     .domain([...new Set(data.map(d => d.Topic))])
-    .range(d3.schemeCategory10);
+    //.range(d3.schemeCategory10);
+    .range(["#0B8BEE","#FFCD00","#35CA00","#D71131", "#BC6ACC", "#5BDEFF", "#EFA0AD" ]);
 
   statusColor = d3.scaleOrdinal()
     .domain(["Active", "Complete", "Inactive"])
@@ -654,9 +655,9 @@ function initializeVisualization() {
 
   label.append("rect")
     .attr("x", d => -((d.name.length * Math.max(12, d.radius / 5) * 0.6 + 10) / 2))
-    .attr("y", -12)
+    .attr("y", -24)
     .attr("width", d => d.name.length * Math.max(12, d.radius / 5) * 0.6 + 10)
-    .attr("height", 24)
+    .attr("height", 48)
     .attr("fill", d => color(d.Topic))
     .attr("rx", 4)
     .attr("pointer-events", "none");

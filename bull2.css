@@ -3,6 +3,12 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    font-family: 'Noto Sans JP';
+  }
+
+  @font-face{
+    font-family : 'Noto Sans JP';
+    src : 'NotoSansJP-VariableFont_wght.ttf';
   }
   
   body {
