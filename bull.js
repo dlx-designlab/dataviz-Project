@@ -254,34 +254,130 @@ function updateFilters() {
           .attr("class", "project-label")
           .attr("transform", d => `translate(${isNaN(d.x) ? 0 : d.x},${isNaN(d.y) ? 0 : d.y})`)
           .attr("opacity", 0);
-        gEnter.append("rect")
-          .attr("x", d => -((d.name.length * Math.max(12, d.radius / 5) * 0.6 + 10) / 2))
-          .attr("y", -12)
-          .attr("width", d => d.name.length * Math.max(12, d.radius / 5) * 0.6 + 10)
-          .attr("height", 24)
-          .attr("fill", d => color(d.Topic))
-          .attr("rx", 4)
-          .attr("pointer-events", "none");
-        gEnter.append("text")
-          .attr("text-anchor", "middle")
-          .attr("dy", ".35em")
-          .attr("font-size", d => Math.max(12, d.radius / 5) + "px")
-          .attr("fill", d => statusColor(d.Status))
-          .attr("pointer-events", "none")
-          .text(d => d.name);
+
+        gEnter.each(function(d) {
+          const fontSize = Math.max(10, d.radius / 6);
+          const maxWidth = 2 * d.radius - 10;
+          const words = d.name.split(/\s+/);
+          let lines = [];
+          let line = '';
+
+          words.forEach(word => {
+            const testLine = line + (line ? ' ' : '') + word;
+            const testWidth = testLine.length * fontSize * 0.95;
+            if (testWidth <= maxWidth - 10) {
+              line = testLine;
+            } else {
+              if (line) lines.push(line);
+              if (word.length * fontSize * 0.95 > maxWidth - 10) {
+                let remaining = word;
+                while (remaining.length > 0) {
+                  let i = Math.floor((maxWidth - 10) / (fontSize * 0.95));
+                  if (i >= remaining.length) {
+                    lines.push(remaining);
+                    remaining = '';
+                  } else {
+                    lines.push(remaining.slice(0, i));
+                    remaining = remaining.slice(i);
+                  }
+                }
+              } else {
+                line = word;
+              }
+            }
+          });
+          if (line) lines.push(line);
+
+          const rectHeight = Math.max(24, lines.length * fontSize * 1.2 + 10);
+          const textWidth = d.name.length * fontSize * 0.95;
+          const rectWidth = Math.min(textWidth + 10, maxWidth);
+
+          d3.select(this).append("rect")
+            .attr("x", -rectWidth / 2)
+            .attr("y", -rectHeight / 2)
+            .attr("width", rectWidth)
+            .attr("height", rectHeight)
+            .attr("fill", d => color(d.Topic))
+            .attr("rx", 4)
+            .attr("pointer-events", "none");
+
+          const text = d3.select(this).append("text")
+            .attr("text-anchor", "middle")
+            .attr("font-size", fontSize + "px")
+            .attr("fill", d => statusColor(d.Status))
+            .attr("y", -rectHeight / 2 + fontSize * 0.6)
+            .attr("pointer-events", "none");
+
+          lines.forEach((line, i) => {
+            text.append("tspan")
+              .attr("x", 0)
+              .attr("dy", i === 0 ? `${fontSize * 0.35}px` : `${fontSize * 1.2}px`)
+              .text(line);
+          });
+        });
+
         return gEnter.transition().duration(500).attr("opacity", 1);
       },
       update => update
         .transition().duration(500)
         .attr("transform", d => `translate(${isNaN(d.x) ? 0 : d.x},${isNaN(d.y) ? 0 : d.y})`)
         .each(function(d) {
+          const fontSize = Math.max(10, d.radius / 6);
+          const maxWidth = 2 * d.radius - 10;
+          const textWidth = d.name.length * fontSize * 0.95;
+          const rectWidth = Math.min(textWidth + 10, maxWidth);
+
+          const words = d.name.split(/\s+/);
+          let lines = [];
+          let line = '';
+
+          words.forEach(word => {
+            const testLine = line + (line ? ' ' : '') + word;
+            const testWidth = testLine.length * fontSize * 0.95;
+            if (testWidth <= maxWidth - 10) {
+              line = testLine;
+            } else {
+              if (line) lines.push(line);
+              if (word.length * fontSize * 0.95 > maxWidth - 10) {
+                let remaining = word;
+                while (remaining.length > 0) {
+                  let i = Math.floor((maxWidth - 10) / (fontSize * 0.95));
+                  if (i >= remaining.length) {
+                    lines.push(remaining);
+                    remaining = '';
+                  } else {
+                    lines.push(remaining.slice(0, i));
+                    remaining = remaining.slice(i);
+                  }
+                }
+              } else {
+                line = word;
+              }
+            }
+          });
+          if (line) lines.push(line);
+
+          const rectHeight = Math.max(24, lines.length * fontSize * 1.2 + 10);
+
           d3.select(this).select("rect")
-            .attr("x", -((d.name.length * Math.max(12, d.radius / 5) * 0.6 + 10) / 2))
-            .attr("width", d.name.length * Math.max(12, d.radius / 5) * 0.6 + 10)
+            .attr("x", -rectWidth / 2)
+            .attr("y", -rectHeight / 2)
+            .attr("width", rectWidth)
+            .attr("height", rectHeight)
             .attr("fill", color(d.Topic));
-          d3.select(this).select("text")
-            .attr("font-size", Math.max(12, d.radius / 5) + "px")
-            .attr("fill", statusColor(d.Status));
+
+          const text = d3.select(this).select("text");
+          text.selectAll("tspan").remove();
+          text.attr("font-size", fontSize + "px")
+            .attr("fill", statusColor(d.Status))
+            .attr("y", -rectHeight / 2 + fontSize * 0.6);
+
+          lines.forEach((line, i) => {
+            text.append("tspan")
+              .attr("x", 0)
+              .attr("dy", i === 0 ? `${fontSize * 0.35}px` : `${fontSize * 1.2}px`)
+              .text(line);
+          });
         }),
       exit => exit.transition().duration(500).attr("opacity", 0).remove()
     );
@@ -690,22 +786,66 @@ function initializeVisualization() {
     .attr("class", "project-label")
     .attr("transform", d => `translate(${isNaN(d.x) ? 0 : d.x},${isNaN(d.y) ? 0 : d.y})`);
 
-  label.append("rect")
-    .attr("x", d => -((d.name.length * Math.max(12, d.radius / 5) * 0.6 + 10) / 2))
-    .attr("y", -24)
-    .attr("width", d => d.name.length * Math.max(12, d.radius / 5) * 0.6 + 10)
-    .attr("height", 48)
-    .attr("fill", d => color(d.Topic))
-    .attr("rx", 4)
-    .attr("pointer-events", "none");
+  label.each(function(d) {
+    const fontSize = Math.max(10, d.radius / 6);
+    const maxWidth = 2 * d.radius - 10;
+    const words = d.name.split(/\s+/);
+    let lines = [];
+    let line = '';
 
-  label.append("text")
-    .attr("text-anchor", "middle")
-    .attr("dy", ".35em")
-    .attr("font-size", d => Math.max(12, d.radius / 5) + "px")
-    .attr("fill", d => statusColor(d.Status))
-    .attr("pointer-events", "none")
-    .text(d => d.name);
+    words.forEach(word => {
+      const testLine = line + (line ? ' ' : '') + word;
+      const testWidth = testLine.length * fontSize * 0.95;
+      if (testWidth <= maxWidth - 10) {
+        line = testLine;
+      } else {
+        if (line) lines.push(line);
+        if (word.length * fontSize * 0.95 > maxWidth - 10) {
+          let remaining = word;
+          while (remaining.length > 0) {
+            let i = Math.floor((maxWidth - 10) / (fontSize * 0.95));
+            if (i >= remaining.length) {
+              lines.push(remaining);
+              remaining = '';
+            } else {
+              lines.push(remaining.slice(0, i));
+              remaining = remaining.slice(i);
+            }
+          }
+        } else {
+          line = word;
+        }
+      }
+    });
+    if (line) lines.push(line);
+
+    const rectHeight = Math.max(24, lines.length * fontSize * 1.2 + 10);
+    const textWidth = d.name.length * fontSize * 0.95;
+    const rectWidth = Math.min(textWidth + 10, maxWidth);
+
+    d3.select(this).append("rect")
+      .attr("x", -rectWidth / 2)
+      .attr("y", -rectHeight / 2)
+      .attr("width", rectWidth)
+      .attr("height", rectHeight)
+      .attr("fill", d => color(d.Topic))
+      .attr("rx", 4)
+      .attr("pointer-events", "none");
+
+    const text = d3.select(this).append("text")
+      .attr("text-anchor", "middle")
+      .attr("font-size", fontSize + "px")
+      .attr("fill", d => statusColor(d.Status))
+      .attr("y", -rectHeight / 2 + fontSize * 0.6)
+      .attr("pointer-events", "none");
+
+    lines.forEach((line, i) => {
+      text.append("tspan")
+        .attr("x", 0)
+        .attr("dy", i === 0 ? `${fontSize * 0.35}px` : `${fontSize * 1.2}px`)
+        .text(line);
+    });
+  });
 
   d3.select("#popup-close").on("click", () => {
     d3.select("#popup").classed("show", false);
