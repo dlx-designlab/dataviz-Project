@@ -313,12 +313,22 @@ function countProjectsForFilter(key, option) {
   }).length;
 }
 
-// Fonction pour positionner les cercles
+// Fonction pour positionner les cercles de manière fixe, collés sans superposition
 function positionCirclesRandomly(data, radius) {
-  console.log("Positionnement des cercles pour", data.length, "projets");
-  const topics = [...new Set(data.map(d => d.Topic))];
-  const topicCenters = {};
+  console.log("Positionnement fixe des cercles pour", data.length, "projets");
+  const topics = [...new Set(data.map(d => d.Topic))].sort();
+  const topicAngles = {};
 
+  // Assigner des plages angulaires pour chaque Topic
+  const anglePerTopic = (2 * Math.PI) / Math.max(1, topics.length);
+  topics.forEach((topic, i) => {
+    const startAngle = i * anglePerTopic;
+    const endAngle = (i + 1) * anglePerTopic;
+    topicAngles[topic] = { startAngle, endAngle };
+    console.log(`Topic ${topic}: angle de ${startAngle * 180 / Math.PI}° à ${endAngle * 180 / Math.PI}°`);
+  });
+
+  // Assurer que chaque projet a un rayon valide
   data.forEach(d => {
     if (!d.radius || isNaN(d.radius)) {
       console.warn(`Rayon invalide pour le projet ${d.name}:`, d.radius);
@@ -326,115 +336,143 @@ function positionCirclesRandomly(data, radius) {
     }
   });
 
+  // Grouper les projets par Topic
+  const projectsByTopic = {};
   topics.forEach(topic => {
-    let x, y, tooClose;
-    let attempts = 0;
-    const maxAttempts = 500;
-    do {
-      const angle = Math.random() * 2 * Math.PI;
-      const distance = Math.sqrt(Math.random()) * (radius - 200);
-      x = distance * Math.cos(angle);
-      y = distance * Math.sin(angle);
-      if (isNaN(x) || isNaN(y)) {
-        console.warn(`Coordonnées NaN pour topic ${topic}: angle=${angle}, distance=${distance}`);
-        x = 0;
-        y = 0;
-      }
-      tooClose = Object.values(topicCenters).some(center => {
-        const dx = center.x - x;
-        const dy = center.y - y;
-        return Math.sqrt(dx * dx + dy * dy) < 300;
-      });
-      attempts++;
-    } while (tooClose && attempts < maxAttempts);
-    topicCenters[topic] = { x, y };
+    projectsByTopic[topic] = data.filter(d => d.Topic === topic).sort((a, b) => a.name.localeCompare(b.name));
   });
 
   const placed = [];
-  data.sort((a, b) => a.Topic.localeCompare(b.Topic));
 
-  data.forEach((d, i) => {
-    const center = topicCenters[d.Topic];
-    let x, y;
+  // Positionner chaque projet dans son secteur avec une simulation de force intra-secteur
+  Object.entries(projectsByTopic).forEach(([topic, projects]) => {
+    const { startAngle, endAngle } = topicAngles[topic];
+    const midAngle = (startAngle + endAngle) / 2;
 
-    if (placed.length === 0) {
-      x = center.x;
-      y = center.y;
-    } else {
-      let placedSuccessfully = false;
-      let attempts = 0;
-      const maxAttempts = 500;
+    // Centre du secteur
+    const baseDistance = radius * 0.5;
+    const baseX = baseDistance * Math.cos(midAngle);
+    const baseY = baseDistance * Math.sin(midAngle);
 
-      while (!placedSuccessfully && attempts < maxAttempts) {
-        const refCircle = placed[Math.floor(Math.random() * placed.length)];
-        const refX = refCircle.x;
-        const refY = refCircle.y;
-        const refRadius = refCircle.radius || 80;
-        const distance = refRadius + (d.radius || 80) + 10;
-        const angle = Math.random() * 2 * Math.PI;
-        x = refX + distance * Math.cos(angle);
-        y = refY + distance * Math.sin(angle);
+    // Initialiser les positions autour du centre
+    projects.forEach((d, i) => {
+      const angle = midAngle + (i / Math.max(1, projects.length - 1)) * (endAngle - startAngle);
+      const r = d.radius + 50 + (i * 50);
+      d.x = baseX + r * Math.cos(angle);
+      d.y = baseY + r * Math.sin(angle);
+    });
 
-        if (isNaN(x) || isNaN(y)) {
-          console.warn(`Coordonnées NaN pour projet ${d.name}: refX=${refX}, refY=${refY}, distance=${distance}, angle=${angle}`);
-          x = center.x;
-          y = center.y;
-          placedSuccessfully = true;
-          break;
-        }
+    // Simulation de force intra-secteur
+    const iterations = 100;
+    const attractionStrength = 0.05;
+    const repulsionStrength = 1.0;
 
-        const distanceFromCenter = Math.sqrt(x * x + y * y);
-        if (distanceFromCenter + (d.radius || 80) > radius - 50) {
-          attempts++;
-          continue;
-        }
+    for (let iter = 0; iter < iterations; iter++) {
+      projects.forEach(d => {
+        let fx = 0;
+        let fy = 0;
 
-        let isOverlapping = false;
-        for (const p of placed) {
-          const dx = p.x - x;
-          const dy = p.y - y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const sumRadii = (p.radius || 80) + (d.radius || 80);
-          if (dist < sumRadii - 0.1) {
-            isOverlapping = true;
-            break;
+        // Attraction vers le centre du secteur
+        const dxCenter = baseX - d.x;
+        const dyCenter = baseY - d.y;
+        fx += dxCenter * attractionStrength;
+        fy += dyCenter * attractionStrength;
+
+        // Répulsion entre bulles du même Topic
+        projects.forEach(other => {
+          if (other !== d) {
+            const dx = d.x - other.x;
+            const dy = d.y - other.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const minDistance = d.radius + other.radius;
+            if (distance < minDistance && distance > 0) {
+              const push = (minDistance - distance) * repulsionStrength / distance;
+              fx += dx * push;
+              fy += dy * push;
+            }
           }
-        }
+        });
 
-        if (!isOverlapping) {
-          placedSuccessfully = true;
-        }
+        // Mettre à jour la position
+        d.x += fx;
+        d.y += fy;
 
-        attempts++;
-      }
-
-      if (!placedSuccessfully) {
-        const angle = Math.random() * 2 * Math.PI;
-        const distance = Math.random() * 50;
-        x = center.x + distance * Math.cos(angle);
-        y = center.y + distance * Math.sin(angle);
-        if (isNaN(x) || isNaN(y)) {
-          console.warn(`Coordonnées NaN pour projet ${d.name} (fallback): center.x=${center.x}, distance=${distance}, angle=${angle}`);
-          x = center.x;
-          y = center.y;
+        // Contraindre dans les limites du SVG
+        const distanceFromCenter = Math.sqrt(d.x * d.x + d.y * d.y);
+        if (distanceFromCenter + d.radius > radius - 50) {
+          const scale = (radius - 50 - d.radius) / distanceFromCenter;
+          d.x *= scale;
+          d.y *= scale;
         }
-        if (Math.sqrt(x * x + y * y) + (d.radius || 80) > radius - 50) {
-          x = center.x;
-          y = center.y;
-        }
-      }
+      });
     }
 
-    d.x = x;
-    d.y = y;
+    placed.push(...projects);
+  });
+
+  // Simulation de force inter-secteur pour éviter les collisions entre Topics
+  const interSectorIterations = 50;
+  const interSectorRepulsionStrength = 0.5;
+
+  for (let iter = 0; iter < interSectorIterations; iter++) {
+    placed.forEach(d => {
+      let fx = 0;
+      let fy = 0;
+
+      // Vérifier les collisions avec toutes les autres bulles
+      placed.forEach(other => {
+        if (other !== d) {
+          const dx = d.x - other.x;
+          const dy = d.y - other.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const minDistance = d.radius + other.radius;
+          if (distance < minDistance && distance > 0) {
+            const push = (minDistance - distance) * interSectorRepulsionStrength / distance;
+            fx += dx * push;
+            fy += dy * push;
+          }
+        }
+      });
+
+      // Mettre à jour la position
+      d.x += fx;
+      d.y += fy;
+
+      // Contraindre dans les limites du SVG
+      const distanceFromCenter = Math.sqrt(d.x * d.x + d.y * d.y);
+      if (distanceFromCenter + d.radius > radius - 50) {
+        const scale = (radius - 50 - d.radius) / distanceFromCenter;
+        d.x *= scale;
+        d.y *= scale;
+      }
+    });
+  }
+
+  // Vérifier les collisions finales
+  for (let i = 0; i < placed.length; i++) {
+    for (let j = i + 1; j < placed.length; j++) {
+      const d1 = placed[i];
+      const d2 = placed[j];
+      const dx = d1.x - d2.x;
+      const dy = d1.y - d2.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const minDistance = d1.radius + d2.radius;
+      if (distance < minDistance - 5) {
+        console.warn(`Collision détectée entre ${d1.name} (${d1.Topic}) et ${d2.name} (${d2.Topic}): distance=${distance}, minDistance=${minDistance}`);
+      }
+    }
+  }
+
+  // Vérifier que les coordonnées sont valides
+  placed.forEach(d => {
     if (isNaN(d.x) || isNaN(d.y)) {
-      console.error(`Coordonnées finales NaN pour projet ${d.name}: x=${d.x}, y=${d.y}`);
+      console.error(`Coordonnées NaN pour projet ${d.name}`);
       d.x = 0;
       d.y = 0;
     }
-    placed.push(d);
   });
-  console.log("Positions calculées:", placed.map(d => ({ name: d.name, x: d.x, y: d.y })));
+
+  console.log("Positions calculées:", placed.map(d => ({ name: d.name, x: d.x, y: d.y, topic: d.Topic, radius: d.radius })));
 }
 
 // Fonction pour initialiser le slider
@@ -473,7 +511,7 @@ function initSlider(min, max) {
       }
     });
 
-    slider.noUiSlider.on('update', function (values, handle) {
+    slider.noUiSlider.on('update', function(values, handle) {
       minSpan.textContent = values[0];
       maxSpan.textContent = values[1];
       console.log("Slider mis à jour: min =", values[0], "max =", values[1]);
@@ -558,8 +596,7 @@ function initializeVisualization() {
 
   color = d3.scaleOrdinal()
     .domain([...new Set(data.map(d => d.Topic))])
-    //.range(d3.schemeCategory10);
-    .range(["#0B8BEE","#FFCD00","#35CA00","#D71131", "#BC6ACC", "#5BDEFF", "#EFA0AD" ]);
+    .range(["#0B8BEE", "#FFCD00", "#35CA00", "#D71131", "#BC6ACC", "#5BDEFF", "#EFA0AD"]);
 
   statusColor = d3.scaleOrdinal()
     .domain(["Active", "Complete", "Inactive"])
